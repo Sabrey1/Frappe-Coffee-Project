@@ -1,0 +1,23 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "dayjs": "^1.11.23",
+    "tailwindcss": "^4.3.5",
+    "vue": "^3.5.44",
+    "vue-i18n": "^11.4.20",
+    "vue-router": "^5.5.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.10",
+    "vite": "^8.3.6"
+  }
+}
