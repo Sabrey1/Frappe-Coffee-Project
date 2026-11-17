@@ -63,6 +63,15 @@ const management = [
   { label: 'Reports', icon: 'reports' },
 ]
 
+function clearSessionCookies() {
+  // HttpOnly cookies must be cleared by Frappe's logout response.
+  for (const name of ['sid', 'user_id', 'full_name', 'user_image', 'system_user']) {
+    for (const path of ['/', '/api']) {
+      document.cookie = `${name}=; Max-Age=0; Path=${path}; SameSite=Lax`
+    }
+  }
+}
+
 async function logout() {
   if (loggingOut.value) return
   if (activePage.value?.confirmExitOrder && !(await activePage.value.confirmExitOrder(true))) return
@@ -72,6 +81,7 @@ async function logout() {
   } catch (error) {
     console.warn('Frappe logout request failed; the server session may still be active.', error)
   } finally {
+    clearSessionCookies()
     clearProfile()
     localStorage.removeItem('token')
     localStorage.removeItem('user')
