@@ -1,5 +1,7 @@
 ﻿// Vite proxies /api in development; production can use a configured Frappe origin.
-const baseUrl = import.meta.env.DEV ? '' : (import.meta.env.VITE_FRAPPE_URL || '').replace(/\/$/, '')
+const baseUrl = import.meta.env.DEV
+  ? ''
+  : (import.meta.env.VITE_FRAPPE_URL || '').replace(/\/$/, '')
 
 export class ApiError extends Error {
   constructor(message, status, data) {

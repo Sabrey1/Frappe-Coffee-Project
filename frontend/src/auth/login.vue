@@ -18,6 +18,9 @@ async function login() {
   try {
     await api.post('/api/method/login', { usr: username.value, pwd: password.value })
     await router.push('/sales')
+    if (router.currentRoute.value.name === 'login') {
+      error.value = 'Could not verify your session. Please try again.'
+    }
   } catch {
     error.value = 'Unable to sign in. Please check your details and try again.'
   } finally {

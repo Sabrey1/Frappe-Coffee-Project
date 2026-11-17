@@ -1,5 +1,7 @@
 ﻿import { createRouter, createWebHistory } from 'vue-router'
 
+import api from '../service/api_services'
+
 export const routes = [
   { path: '/', redirect: '/sales' },
   { path: '/profile', name: 'profile', component: () => import('../view/Profile/profile.vue'), meta: { label: 'My profile' } },
@@ -24,10 +26,25 @@ export const navigation = routes
   .filter((route) => route.meta?.navigation)
   .map((route) => ({ label: route.meta.label, icon: route.meta.icon, to: route.path }))
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
+
+router.beforeEach(async (to) => {
+  if (to.name === 'login') return true
+
+  try {
+    const session = await api.get('/api/method/frappe.auth.get_logged_user')
+    if (session?.message && session.message !== 'Guest') return true
+  } catch {
+    // An unavailable or expired session cannot access protected pages.
+  }
+
+  return { name: 'login' }
+})
+
+export default router
 
 
 
