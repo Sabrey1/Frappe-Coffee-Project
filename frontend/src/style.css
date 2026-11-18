@@ -89,6 +89,7 @@ html:has(.sales-list-shell), body:has(.sales-list-shell) { height: 100%; overflo
 .sales-list-shell .payment-table thead th { position: sticky; top: 0; z-index: 1; }
 
 .sales-list-shell .settings-content { width: 100%; flex: 1; min-height: 0; margin: 0 auto; padding-top: 22px; padding-bottom: 22px; overflow-y: auto; }
+.sales-list-shell .dashboard-content { width: 100%; flex: 1; min-height: 0; padding: 0; overflow-y: auto; }
 @media (max-width: 700px) { .sales-list-shell .settings-content { padding: 20px 16px; } }
 
 .profile-link { overflow: hidden; text-decoration: none; }

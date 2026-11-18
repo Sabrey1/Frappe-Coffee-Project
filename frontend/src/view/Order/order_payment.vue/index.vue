@@ -1,124 +1,20 @@
-﻿<script setup>
+<script setup>
 import { t } from '../../../utils/language.js'
-import { computed, nextTick, onMounted, ref } from 'vue'
-import api from '../../../service/api_services'
-import { getCheckout, setCheckout, clearCheckout } from '../order_checkout'
-import { buildCheckoutRequest, correctableCheckoutError } from '../checkout_request'
+import { useOrderPayment } from '../../../composable/useOrderPayment.js'
 
-const order = ref(getCheckout())
-const entered = ref('0')
-const methods = ref([])
-const selectedMethod = ref('')
-const loading = ref(false)
-const error = ref('')
-const confirmationDialog = ref(null)
-const printAfterPayment = ref(false)
-const reference = ref(order.value?.attempt?.reference_number || '')
-const pendingRequest = ref(order.value?.attempt || null)
-const paymentResult = ref(order.value?.result || null)
-const submitting = ref(false)
-const paymentError = ref('')
-const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫']
-const method = computed(() => methods.value.find(item => item.name === selectedMethod.value))
-const subtotal = computed(() => (order.value?.items || []).reduce((sum, item) => sum + Number(item.selling_price || 0) * Number(item.quantity || 0), 0))
-const discount = computed(() => Number(order.value?.discountAmount || 0))
-const tax = computed(() => Math.round(Math.max(0, subtotal.value - discount.value) * Number(order.value?.taxRatePercent || 0)) / 100)
-const total = computed(() => Math.round((subtotal.value - discount.value + tax.value) * 100) / 100)
-const received = computed(() => Number(entered.value) || 0)
-const money = value => `$${Number(value || 0).toFixed(2)}`
-function printReceipt() { window.print() }
-function showConfirmation(print) {
-  paymentError.value = ''
-  if (!pendingRequest.value && method.value?.reference_required && !reference.value.trim()) {
-    paymentError.value = 'Please enter the payment reference number.'
-    return
-  }
-  if (!pendingRequest.value && received.value <= 0) {
-    paymentError.value = 'Enter the amount received.'
-    return
-  }
-  printAfterPayment.value = print
-  confirmationDialog.value?.showModal()
-}
-function pressKey(key) {
-  if (pendingRequest.value || submitting.value) return
-  if (key === '⌫') { entered.value = entered.value.slice(0, -1) || '0'; return }
-  if (key === '.' && entered.value.includes('.')) return
-  if (entered.value.includes('.') && entered.value.split('.')[1].length >= 2) return
-  if (entered.value.replace('.', '').length >= 9) return
-  entered.value = entered.value === '0' && key !== '.' ? key : entered.value + key
-}
-async function confirmPayment() {
-  if (submitting.value || paymentResult.value) return
-  paymentError.value = ''
-  if (!pendingRequest.value) {
-    if (!globalThis.crypto?.randomUUID) {
-      paymentError.value = 'A secure checkout ID could not be created. Use localhost or HTTPS.'
-      return
-    }
-    pendingRequest.value = buildCheckoutRequest({ checkoutKey: globalThis.crypto.randomUUID(), order: order.value, paymentMethod: selectedMethod.value, amountReceived: received.value, referenceNumber: reference.value })
-    order.value = { ...order.value, attempt: pendingRequest.value }
-    setCheckout(order.value)
-  }
-  submitting.value = true
-  try {
-    const response = await api.post('/api/method/coffee_shop.api.v1.checkout.checkout', pendingRequest.value)
-    const result = response?.message
-    if (!result?.order_id || !result?.payment_id) throw new Error('Checkout did not return order and payment IDs.')
-    paymentResult.value = result
-    order.value = { ...order.value, result }
-    setCheckout(order.value)
-    confirmationDialog.value?.close()
-    if (printAfterPayment.value) { await nextTick(); printReceipt() }
-  } catch (err) {
-    const validationMessage = correctableCheckoutError(err)
-    if (validationMessage) {
-      // These errors are raised before the server writes a payment. Allow a corrected attempt.
-      pendingRequest.value = null
-      order.value = { ...order.value, attempt: null }
-      setCheckout(order.value)
-      confirmationDialog.value?.close()
-      paymentError.value = `${validationMessage} Please correct the payment details and try again.`
-    } else {
-      paymentError.value = err.status
-        ? `Checkout failed (${err.status}). Check the server response and retry the same payment.`
-        : 'Could not confirm the result. Retry this same payment to avoid a duplicate.'
-    }
-  } finally { submitting.value = false }
-}
-function startNewOrder() {
-  clearCheckout()
-}
-async function loadMethods() {
-  loading.value = true
-  error.value = ''
-  try {
-    const response = await api.get('/api/resource/Coffee%20Payment%20Method', { params: { fields: ['name', 'method_name', 'payment_type', 'reference_required'], filters: [['enabled', '=', 1]], limit_page_length: 100, order_by: 'method_name asc' } })
-    if (!Array.isArray(response?.data)) throw new Error('Unexpected response')
-    methods.value = response.data
-    if (!pendingRequest.value && !methods.value.some(item => item.name === selectedMethod.value)) selectedMethod.value = methods.value[0]?.name || ''
-  } catch { error.value = 'Could not load payment methods. Check your access and try again.' }
-  finally { loading.value = false }
-}
-onMounted(() => {
-  if (pendingRequest.value) {
-    entered.value = String(pendingRequest.value.amount_received)
-    selectedMethod.value = pendingRequest.value.payment_method
-  }
-  loadMethods()
-})
+const { order, entered, methods, selectedMethod, loading, error, confirmationDialog, printAfterPayment, reference, pendingRequest, paymentResult, submitting, paymentError, keys, method, subtotal, discount, tax, total, received, orderCurrency, exchangeRateError, exchangeRateLoading, exchangeRateLabel, loadExchangeRate, money, printReceipt, showConfirmation, pressKey, confirmPayment, startNewOrder, loadMethods } = useOrderPayment()
 </script>
 
 <template>
   <div class="checkout-page">
     <div class="checkout-top"><RouterLink v-if="!pendingRequest && !paymentResult" class="back-link" :to="order?.orderId ? { name: 'sales', query: { viewOrder: order.orderId } } : { name: 'sales' }">{{ t("← Back to order") }}</RouterLink><div class="checkout-tag">{{ t(order?.orderType || 'Order') }}</div></div>
-    <div v-if="paymentResult" class="payment-complete"><div class="checkout-receipt"><p class="checkout-kicker">{{ t("PAYMENT COMPLETE") }}</p><h1>{{ t("Payment received") }}</h1><p>{{ t('Order:') }} {{ paymentResult.order_id }}</p><p>{{ t('Payment:') }} {{ paymentResult.payment_id }}</p><div v-if="paymentResult.receipt?.items?.length" class="receipt-items"><div v-for="(item, index) in paymentResult.receipt.items" :key="index"><span>{{ item.quantity }} × {{ item.item_name || item.menu_item }}</span><span v-if="item.amount != null">{{ money(item.amount) }}</span></div></div><p v-if="paymentResult.grand_total != null"><strong>{{ t('Total:') }} {{ money(paymentResult.grand_total) }}</strong></p></div><div class="complete-actions"><button type="button" @click="printReceipt">{{ t("Print receipt") }}</button><RouterLink to="/sales" @click="startNewOrder">{{ t("New order") }}</RouterLink></div></div>
+    <div v-if="paymentResult" class="payment-complete"><div class="checkout-receipt"><p class="checkout-kicker">{{ t("PAYMENT COMPLETE") }}</p><h1>{{ t("Payment received") }}</h1><p>{{ t('Order:') }} {{ paymentResult.order_id }}</p><p>{{ t('Payment:') }} {{ paymentResult.payment_id }}</p><div v-if="paymentResult.receipt?.items?.length" class="receipt-items"><div v-for="(item, index) in paymentResult.receipt.items" :key="index"><span>{{ item.quantity }} × {{ item.item_name || item.menu_item }}</span><span v-if="item.amount != null">{{ money(item.amount, order.items?.find(orderItem => orderItem.name === item.menu_item)?.currency) }}</span></div></div><p v-if="paymentResult.grand_total != null"><strong>{{ t('Total:') }} {{ money(paymentResult.grand_total) }}</strong></p></div><div class="complete-actions"><button type="button" @click="printReceipt">{{ t("Print receipt") }}</button><RouterLink to="/sales" @click="startNewOrder">{{ t("New order") }}</RouterLink></div></div>
     <div v-else-if="!order?.items?.length" class="empty-checkout"><strong>{{ t("No order to review") }}</strong><p>{{ t("Add items to an order before opening payment.") }}</p><RouterLink to="/sales">{{ t("Go to Sales →") }}</RouterLink></div>
     <template v-else>
       <div class="checkout-grid">
         <section class="checkout-card"><div class="card-title"><span class="step">01</span><div><h2>{{ t("Enter amount") }}</h2><p>{{ t("Amount received from customer") }}</p></div></div><div class="amount-display"><span>{{ t("AMOUNT RECEIVED") }}</span><strong>{{ money(received) }}</strong></div><div class="keypad"><button v-for="key in keys" :key="key" type="button" :disabled="!!pendingRequest || submitting" :aria-label="key === '⌫' ? 'Backspace' : key" @click="pressKey(key)">{{ key }}</button></div><button class="clear-button" type="button" :disabled="!!pendingRequest || submitting" @click="entered = '0'">{{ t("Clear amount") }}</button></section>
         <section class="checkout-card"><div class="card-title"><span class="step">02</span><div><h2>{{ t("Payment method") }}</h2><p>{{ t("Choose how the customer will pay") }}</p></div></div><div v-if="loading" class="method-note" role="status">{{ t("Loading payment methods…") }}</div><div v-else-if="error" class="method-note" role="alert">{{ t(error) }} <button class="retry" @click="loadMethods">{{ t("Retry") }}</button></div><div v-else-if="!methods.length" class="method-note">{{ t("No enabled payment methods found.") }}</div><div v-else class="methods"><button v-for="option in methods" :key="option.name" type="button" :disabled="!!pendingRequest || submitting" :class="{ active: selectedMethod === option.name }" :aria-pressed="selectedMethod === option.name" @click="selectedMethod = option.name"><span class="method-icon" aria-hidden="true">{{ option.payment_type === 'Cash' ? '▣' : '▤' }}</span><span><strong>{{ option.method_name || option.name }}</strong><small>{{ t(option.payment_type || 'Payment method') }}</small></span><span class="method-check" aria-hidden="true">{{ selectedMethod === option.name ? '✓' : '' }}</span></button></div><label v-if="method?.reference_required || reference" class="reference-field">{{ t("Reference number") }}<input v-model="reference" :disabled="!!pendingRequest || submitting" :placeholder="t('Enter reference number')"></label></section>
-        <section class="checkout-card preview-card"><div class="card-title"><span class="step">03</span><div><h2>{{ t("Payment preview") }}</h2><p>{{ t("Check the details before payment") }}</p></div></div><div class="preview-items"><div v-for="item in order.items" :key="item.name"><span>{{ item.quantity }} × {{ item.item_name || item.name }}</span><strong>{{ money(item.selling_price * item.quantity) }}</strong></div></div><div class="preview-summary"><div><span>{{ t("Order type") }}</span><strong>{{ t(order.orderType) }}</strong></div><div><span>{{ t("Payment method") }}</span><strong>{{ method?.method_name || t('Not selected') }}</strong></div><div><span>{{ t("Payment type") }}</span><strong>{{ method?.payment_type || '—' }}</strong></div><div><span>{{ t("Subtotal") }}</span><strong>{{ money(subtotal) }}</strong></div><div v-if="order.orderId"><span>{{ t("Discount") }}</span><strong>−{{ money(discount) }}</strong></div><div v-if="order.orderId"><span>{{ t("Estimated tax") }}</span><strong>{{ money(tax) }}</strong></div><div><span>{{ t("Amount received") }}</span><strong>{{ money(received) }}</strong></div><div><span>{{ t("Balance due") }}</span><strong>{{ money(Math.max(0, total - received)) }}</strong></div><div><span>{{ t("Change") }}</span><strong>{{ money(Math.max(0, received - total)) }}</strong></div><div class="preview-total"><span>{{ t("Estimated total") }}</span><strong>{{ money(total) }}</strong></div></div><p class="method-note">{{ t("This is an estimate. Frappe will calculate the final total. No payment has been recorded.") }}</p><p v-if="paymentError" class="payment-error" role="alert">{{ t(paymentError) }}</p><p v-if="pendingRequest" class="method-note">{{ t("Retry this same checkout until its result is confirmed.") }}</p><div class="preview-actions"><button type="button" :disabled="(!method && !pendingRequest) || submitting" @click="showConfirmation(false)">{{ t("Payment") }}</button><button type="button" :disabled="(!method && !pendingRequest) || submitting" @click="showConfirmation(true)">{{ t("Payment & Print") }}</button></div></section>
+        <section class="checkout-card preview-card"><div class="card-title"><span class="step">03</span><div><h2>{{ t("Payment preview") }}</h2><p>{{ t("Check the details before payment") }}</p></div></div><p v-if="exchangeRateError" class="payment-error" role="alert">{{ t(exchangeRateError) }} <button class="retry" type="button" :disabled="exchangeRateLoading" @click="loadExchangeRate">{{ t("Try again") }}</button></p><p v-else-if="exchangeRateLabel" class="method-note" role="status">{{ exchangeRateLabel }}</p><div class="preview-items"><div v-for="item in order.items" :key="item.name"><span>{{ item.quantity }} × {{ item.item_name || item.name }}</span><strong>{{ money(item.selling_price * item.quantity, item.currency) }}</strong></div></div><div class="preview-summary"><div><span>{{ t("Order type") }}</span><strong>{{ t(order.orderType) }}</strong></div><div><span>{{ t("Payment method") }}</span><strong>{{ method?.method_name || t('Not selected') }}</strong></div><div><span>{{ t("Payment type") }}</span><strong>{{ method?.payment_type || '—' }}</strong></div><div><span>{{ t("Subtotal") }}</span><strong>{{ money(subtotal, orderCurrency) }}</strong></div><div v-if="order.orderId"><span>{{ t("Discount") }}</span><strong>−{{ money(discount, orderCurrency) }}</strong></div><div v-if="order.orderId"><span>{{ t("Estimated tax") }}</span><strong>{{ money(tax, orderCurrency) }}</strong></div><div><span>{{ t("Amount received") }}</span><strong>{{ money(received, orderCurrency) }}</strong></div><div><span>{{ t("Balance due") }}</span><strong>{{ money(Math.max(0, total - received), orderCurrency) }}</strong></div><div><span>{{ t("Change") }}</span><strong>{{ money(Math.max(0, received - total), orderCurrency) }}</strong></div><div class="preview-total"><span>{{ t("Estimated total") }}</span><strong>{{ money(total, orderCurrency) }}</strong></div></div><p class="method-note">{{ t("This is an estimate. Frappe will calculate the final total. No payment has been recorded.") }}</p><p v-if="paymentError" class="payment-error" role="alert">{{ t(paymentError) }}</p><p v-if="pendingRequest" class="method-note">{{ t("Retry this same checkout until its result is confirmed.") }}</p><div class="preview-actions"><button type="button" :disabled="(!method && !pendingRequest) || submitting || exchangeRateLoading || !!exchangeRateError" @click="showConfirmation(false)">{{ t("Payment") }}</button><button type="button" :disabled="(!method && !pendingRequest) || submitting || exchangeRateLoading || !!exchangeRateError" @click="showConfirmation(true)">{{ t("Payment & Print") }}</button></div></section>
       </div>
       <dialog ref="confirmationDialog" class="confirm-dialog" aria-labelledby="confirm-title" @cancel="submitting && $event.preventDefault()"><h2 id="confirm-title">{{ t("Confirm payment?") }}</h2><p>{{ t('Order total:') }} {{ money(total) }}. {{ t('Amount received:') }} {{ money(received) }}. {{ t('Payment method:') }} {{ method?.method_name || pendingRequest?.payment_method }}{{ printAfterPayment ? t(' and print a receipt') : '' }}.</p><p v-if="paymentError" class="confirm-warning" role="alert">{{ t(paymentError) }}</p><div class="confirm-actions"><button type="button" :disabled="submitting" @click="confirmationDialog.close()">{{ t("Cancel") }}</button><button type="button" :disabled="submitting" @click="confirmPayment">{{ submitting ? 'Processing…' : 'Confirm payment' }}</button></div></dialog>
     </template>

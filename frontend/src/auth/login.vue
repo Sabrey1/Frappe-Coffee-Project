@@ -1,37 +1,16 @@
 ﻿<script setup>
+import { onMounted } from 'vue'
 import { t } from '../utils/language.js'
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import api from '../service/api_services'
+import { useAuth } from '../composable/useAuth.js'
+import { loadShopName, shopName } from '../utils/shopName.js'
 
-const router = useRouter()
-const username = ref('')
-const password = ref('')
-const showPassword = ref(false)
-const loading = ref(false)
-const error = ref('')
-
-async function login() {
-  if (loading.value) return
-  error.value = ''
-  loading.value = true
-  try {
-    await api.post('/api/method/login', { usr: username.value, pwd: password.value })
-    await router.push('/sales')
-    if (router.currentRoute.value.name === 'login') {
-      error.value = 'Could not verify your session. Please try again.'
-    }
-  } catch {
-    error.value = 'Unable to sign in. Please check your details and try again.'
-  } finally {
-    loading.value = false
-  }
-}
+const { username, password, showPassword, loading, error, login } = useAuth()
+onMounted(loadShopName)
 </script>
 
 <template>
   <main class="login-page">
-    <div class="login-brand"><div class="login-brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 9h11v4.5a5.5 5.5 0 0 1-11 0V9ZM16 10h1.25a2.25 2.25 0 1 1 0 4.5H16M8 4.5v1.7M12 4.5v1.7M4 20h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><strong>Frappe</strong><span>{{ t("COFFEE WORKSPACE") }}</span></div></div>
+    <div class="login-brand"><div class="login-brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 9h11v4.5a5.5 5.5 0 0 1-11 0V9ZM16 10h1.25a2.25 2.25 0 1 1 0 4.5H16M8 4.5v1.7M12 4.5v1.7M4 20h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><strong>Frappe</strong><span>{{ shopName || t("COFFEE WORKSPACE") }}</span></div></div>
     <section class="login-card" aria-labelledby="login-title">
       <div class="login-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 9h11v4.5a5.5 5.5 0 0 1-11 0V9ZM16 10h1.25a2.25 2.25 0 1 1 0 4.5H16M8 4v2M12 4v2M4 20h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <p class="login-eyebrow">{{ t("WELCOME BACK") }}</p>
