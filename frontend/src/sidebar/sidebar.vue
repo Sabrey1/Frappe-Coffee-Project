@@ -130,11 +130,11 @@ async function selectItem(label) {
           <svg v-else viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3"/><path d="M3.5 19v-1a5.5 5.5 0 0 1 11 0v1H3.5ZM16 5.5a3 3 0 0 1 0 5.8M17 13a4.5 4.5 0 0 1 3.5 4.4V19H18"/></svg>
           <span>{{ t(item.label) }}</span>
         </RouterLink>
-        <p class="nav-heading management-heading">{{ t("MANAGEMENT") }}</p>
+        <!-- <p class="nav-heading management-heading">{{ t("MANAGEMENT") }}</p>
         <button v-for="item in management" :key="item.label" class="nav-item" :class="{ active: activeItem === item.label }" :aria-current="activeItem === item.label ? 'page' : undefined" @click="selectItem(item.label)">
           <svg v-if="item.icon === 'reports'" viewBox="0 0 24 24" fill="none"><path d="M4 20h16M6.5 17v-5M12 17V5M17.5 17V9"/></svg>
           <span>{{ t(item.label) }}</span>
-        </button>
+        </button> -->
         <div class="sidebar-bottom">
           <button class="nav-item" type="button" :class="{ active: activeItem === 'Settings' }" :aria-current="activeItem === 'Settings' ? 'page' : undefined" @click="selectItem('Settings')">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 13.5a7.5 7.5 0 0 0 0-3l1.5-1-1.5-2.6-1.8.6a7.7 7.7 0 0 0-2.6-1.5L14.3 4h-3l-.4 2a7.7 7.7 0 0 0-2.6 1.5l-1.8-.6L5 9.5l1.5 1a7.5 7.5 0 0 0 0 3l-1.5 1 1.5 2.6 1.8-.6a7.7 7.7 0 0 0 2.6 1.5l.4 2h3l.4-2a7.7 7.7 0 0 0 2.6-1.5l1.8.6 1.5-2.6-1.6-1Z"/></svg>
